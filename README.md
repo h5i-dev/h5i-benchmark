@@ -1,57 +1,73 @@
 # h5i-benchmark
 
 Worked solutions to the [XBOW validation benchmarks](https://github.com/xbow-engineering/validation-benchmarks),
-driven entirely by [h5i](https://github.com/h5i-dev/h5i) — `h5i browser` and the
-`h5i websec` plugin, and nothing else.
+driven by [h5i](https://github.com/h5i-dev/h5i): `h5i browser`, the `h5i websec`
+plugin, nothing else.
 
-Each script takes a URL and prints a flag. They exist for two reasons: to show
-that the workbench verbs compose into a real solution rather than a demo, and to
-be the regression suite for when they stop composing. Every one is checked
-against the flag the corpus computes for that benchmark, `FLAG{sha256(NAME)}`,
-so a pass means the exact expected string came back rather than something
-flag-shaped.
+Each script takes a URL and prints a flag. Every one is checked against the flag
+the corpus computes for that benchmark, `FLAG{sha256(NAME)}`. A pass means the
+exact expected string came back, not that something flag-shaped appeared.
+
+## What this measures
+
+Not the discovery of anything new. These benchmarks are public and so are their
+solutions:
+
+- [XBOW Validation Benchmark wiki](https://github.com/samugit83/redamon/wiki/XBOW-Validation-Benchmark)
+- [xben-benchmark-results](https://github.com/KeygraphHQ/xbow-validation-benchmarks/tree/main/xben-benchmark-results)
+- [apxlabs.ai/benchmark/xben](https://apxlabs.ai/benchmark/xben)
+
+Every vulnerability in the corpus was written up before this repository existed,
+and nothing here found an unknown bug. A solve says nothing about whether an
+agent can discover a vulnerability.
+
+What it does test is the tool. Can h5i express the request an exploit needs, send
+it, record it, and show what came back? Does that hold across a hundred
+applications rather than the three it was written against? A corpus with known
+answers is the right instrument for those questions, because failure is
+unambiguous. The exploit is known to work. If the script does not get the flag,
+h5i is what is missing.
 
 ## What these are not
 
-Not an attack toolkit and not a scanner. Every payload here was written into the
-script by a person who read the application; h5i sends what it is told, records
-it, and shows what came back. That division is the design, not an omission — see
-`docs/design/design-websec.md` in the h5i repository, W1.
+Every payload here was written into the script by a person who read the
+application. h5i sends what it is told, records it, and shows what came back. It
+generates nothing and scans for nothing. `docs/design/design-websec.md` in the
+h5i repository, W1, says why the division sits where it does.
 
 ## Setup
 
-You need three things:
+Three things.
 
-1. **The corpus.** Clone it and tell this repository where it is:
+1. **The corpus:** clone it and say where it is.
 
    ```bash
    git clone https://github.com/xbow-engineering/validation-benchmarks ~/Ref/validation-benchmarks
    export XBEN_ROOT=~/Ref/validation-benchmarks     # the default
    ```
 
-2. **Docker**, with the compose plugin. `scripts/xben.sh` builds and runs one
-   benchmark and prints the URL it published:
+2. **Docker**, with the compose plugin. `scripts/xben.sh` builds one benchmark,
+   runs it, and prints the URL it published.
 
    ```bash
    URL="$(./scripts/xben.sh up XBEN-006-24)"
    ./scripts/xben.sh down XBEN-006-24
    ```
 
-   The corpus was written in 2024 for an x86 machine and does not run unchanged
-   on a current Docker on arm64. `xben.sh` rewrites the compose file and the
-   Dockerfiles it points at on the way past, and its header says exactly what it
-   substitutes and why — including the two substitutions that are not
-   portability at all but the difference between a benchmark that runs and one
-   that can be solved.
+   The corpus was written in 2024 for an x86 machine. It does not run unchanged
+   on a current Docker on arm64, so `xben.sh` rewrites the compose file and the
+   Dockerfiles it points at on the way past. Its header lists every
+   substitution. Two of those are not about portability at all. They are the
+   difference between a benchmark that runs and one that can be solved.
 
-3. **h5i**, with the `websec` plugin installed:
+3. **h5i**, with the `websec` plugin installed.
 
    ```bash
    cargo build --release --workspace
    ./target/release/h5i plugin install websec --from target/release/h5i-websec
    ```
 
-   The scripts call `h5i` from `$PATH`. To use a build instead, set `H5I`:
+   The scripts call `h5i` from `$PATH`. Set `H5I` to use a build instead:
 
    ```bash
    H5I=../h5i/target/release/h5i ./examples/xben-006-sqli-allowlist.sh "$URL"
@@ -65,9 +81,9 @@ You need three things:
 JOBS=1 ./examples/run-all.sh     # one at a time
 ```
 
-Each script is run against a freshly built instance and its output compared to
-the expected flag. The unit of parallelism is the benchmark, not the script:
-some benchmarks have two examples and those share a docker project.
+Each script runs against a freshly built instance, and its output is compared to
+the expected flag. The unit of parallelism is the benchmark rather than the
+script: some benchmarks have two examples, and those share a docker project.
 
 ## The shape they all have
 
@@ -76,27 +92,29 @@ some benchmarks have two examples and those share a docker project.
 3. `h5i websec replay req_N --set …` with the payload.
 4. Read the answer back and print the flag.
 
-The interesting line is nearly always step 2. Finding the request an application
-makes is most of the work; changing it is one flag.
+Finding the request an application makes is most of the job. Changing it is one
+flag.
 
 ## What this exercise found
 
-Running the corpus was not about the score. It was about finding the places
-where the workbench could not say what a person needed to say. Five of those
-turned into changes in h5i itself, and they are recorded under "What
-benchmarking changed" in `docs/design/design-websec.md` there: bytes a command
-line cannot carry, bytes that came back and could not be read, a response body
-that was not text, a request that was quietly not the one asked for, and a
-grammar slip in a refusal.
+Five places where the workbench could not say what a person needed to say:
+
+- bytes a command line cannot carry
+- bytes that came back and could not be read
+- a response body that was not text
+- a request that was quietly not the one asked for
+- a grammar slip in a refusal
+
+All five are written up under "What benchmarking changed" in
+`docs/design/design-websec.md` in the h5i repository.
 
 ## Coverage
 
-
 98 of the corpus's 104 benchmarks, each verified against the flag the corpus
-computes (`FLAG{sha256(NAME)}`) rather than against something flag-shaped. Six
-benchmarks have two examples: a shell one and a Python one, because a blind
-extraction loop is where the shell stops being the right tool and the design
-says so (`docs/design/design-websec.md` W10).
+computes (`FLAG{sha256(NAME)}`) rather than against something flag-shaped. Six of
+them have two examples, a shell one and a Python one. A blind extraction loop is
+where the shell stops being the right tool, and the design says so
+(`docs/design/design-websec.md` W10).
 
 The six that are not here, and why:
 
@@ -104,8 +122,8 @@ The six that are not here, and why:
 | --- | --- |
 | 026, 031 | Apache path-traversal CVEs. h5i cannot send a request-target its URL parser would rewrite, and `.%2e/` is exactly such a target. See "Known gap" in `docs/design/design-websec.md`. |
 | 066 | HTTP request smuggling. Same gap: the subject of the test is bytes the parser normalises. |
-| 030 | Backup Migration 1.3.5, CVE-2023-6553. The include is `BMI_INCLUDES . '/bypasser.php'` with a prefix from a header, so the file it reaches has to sit at a path whose last two segments are fixed. The one file this flow lets an attacker write is the PHP error log, whose name is fixed too, and this image has `allow_url_include` off, so the prefix cannot be a URL either. |
-| 088 | A TOCTOU between two session reads inside one request. Not reproducible on the stack it builds today: both reads go through one flask-sqlalchemy session, and `_retrieve_session_data`'s `query.first()` returns the row object already in the identity map without refreshing it, so the second read cannot see a concurrent write. 213 attempts aimed at the predicted window, no hit. The benchmark pins no dependency versions, so the stack it was written against is not the one it installs. |
+| 030 | Backup Migration 1.3.5, CVE-2023-6553. The include takes its prefix from a header but keeps a fixed `includes/bypasser.php` suffix, so the file it reaches needs a path whose last two segments are already decided. The one file this flow lets you write is the PHP error log, and its name is fixed too. The image has `allow_url_include` off, so the prefix cannot be a URL either. |
+| 088 | A TOCTOU between two session reads inside one request. Not reproducible on the stack it builds today. Both reads go through one flask-sqlalchemy session, and `_retrieve_session_data`'s `query.first()` hands back the row object already in the identity map without refreshing it, so the second read cannot see a concurrent write. 213 attempts aimed at the predicted window, no hit. The benchmark pins no dependency versions, so the stack it was written against is not the one it installs. |
 | 092 | A phar deserialization chain behind an SSRF whose POST body is hard-coded, so the upload step has no way in. |
 
 | Benchmark | What it is | Tags | Script |
