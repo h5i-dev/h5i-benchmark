@@ -1,8 +1,8 @@
 # h5i-benchmark
 
 Worked solutions to the [XBOW validation benchmarks](https://github.com/xbow-engineering/validation-benchmarks),
-driven by [h5i](https://github.com/h5i-dev/h5i): `h5i browser`, the `h5i websec`
-plugin, nothing else.
+driven by [h5i](https://github.com/h5i-dev/h5i): `h5i browser` & the `h5i websec`
+plugin.
 
 Each script takes a URL and prints a flag. Every one is checked against the flag
 the corpus computes for that benchmark, `FLAG{sha256(NAME)}`. A pass means the
