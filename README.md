@@ -1,1 +1,210 @@
 # h5i-benchmark
+
+Worked solutions to the [XBOW validation benchmarks](https://github.com/xbow-engineering/validation-benchmarks),
+driven entirely by [h5i](https://github.com/h5i-dev/h5i) — `h5i browser` and the
+`h5i websec` plugin, and nothing else.
+
+Each script takes a URL and prints a flag. They exist for two reasons: to show
+that the workbench verbs compose into a real solution rather than a demo, and to
+be the regression suite for when they stop composing. Every one is checked
+against the flag the corpus computes for that benchmark, `FLAG{sha256(NAME)}`,
+so a pass means the exact expected string came back rather than something
+flag-shaped.
+
+## What these are not
+
+Not an attack toolkit and not a scanner. Every payload here was written into the
+script by a person who read the application; h5i sends what it is told, records
+it, and shows what came back. That division is the design, not an omission — see
+`docs/design/design-websec.md` in the h5i repository, W1.
+
+## Setup
+
+You need three things:
+
+1. **The corpus.** Clone it and tell this repository where it is:
+
+   ```bash
+   git clone https://github.com/xbow-engineering/validation-benchmarks ~/Ref/validation-benchmarks
+   export XBEN_ROOT=~/Ref/validation-benchmarks     # the default
+   ```
+
+2. **Docker**, with the compose plugin. `scripts/xben.sh` builds and runs one
+   benchmark and prints the URL it published:
+
+   ```bash
+   URL="$(./scripts/xben.sh up XBEN-006-24)"
+   ./scripts/xben.sh down XBEN-006-24
+   ```
+
+   The corpus was written in 2024 for an x86 machine and does not run unchanged
+   on a current Docker on arm64. `xben.sh` rewrites the compose file and the
+   Dockerfiles it points at on the way past, and its header says exactly what it
+   substitutes and why — including the two substitutions that are not
+   portability at all but the difference between a benchmark that runs and one
+   that can be solved.
+
+3. **h5i**, with the `websec` plugin installed:
+
+   ```bash
+   cargo build --release --workspace
+   ./target/release/h5i plugin install websec --from target/release/h5i-websec
+   ```
+
+   The scripts call `h5i` from `$PATH`. To use a build instead, set `H5I`:
+
+   ```bash
+   H5I=../h5i/target/release/h5i ./examples/xben-006-sqli-allowlist.sh "$URL"
+   ```
+
+## Running them
+
+```bash
+./examples/run-all.sh            # every example, three benchmarks at a time
+./examples/run-all.sh 006 021    # just these
+JOBS=1 ./examples/run-all.sh     # one at a time
+```
+
+Each script is run against a freshly built instance and its output compared to
+the expected flag. The unit of parallelism is the benchmark, not the script:
+some benchmarks have two examples and those share a docker project.
+
+## The shape they all have
+
+1. `h5i browser open --capture` on the target, so every message is stored.
+2. Drive the page far enough to produce the request worth attacking.
+3. `h5i websec replay req_N --set …` with the payload.
+4. Read the answer back and print the flag.
+
+The interesting line is nearly always step 2. Finding the request an application
+makes is most of the work; changing it is one flag.
+
+## What this exercise found
+
+Running the corpus was not about the score. It was about finding the places
+where the workbench could not say what a person needed to say. Five of those
+turned into changes in h5i itself, and they are recorded under "What
+benchmarking changed" in `docs/design/design-websec.md` there: bytes a command
+line cannot carry, bytes that came back and could not be read, a response body
+that was not text, a request that was quietly not the one asked for, and a
+grammar slip in a refusal.
+
+## Coverage
+
+
+98 of the corpus's 104 benchmarks, each verified against the flag the corpus
+computes (`FLAG{sha256(NAME)}`) rather than against something flag-shaped. Six
+benchmarks have two examples: a shell one and a Python one, because a blind
+extraction loop is where the shell stops being the right tool and the design
+says so (`docs/design/design-websec.md` W10).
+
+The six that are not here, and why:
+
+| Benchmark | Why not |
+| --- | --- |
+| 026, 031 | Apache path-traversal CVEs. h5i cannot send a request-target its URL parser would rewrite, and `.%2e/` is exactly such a target. See "Known gap" in `docs/design/design-websec.md`. |
+| 066 | HTTP request smuggling. Same gap: the subject of the test is bytes the parser normalises. |
+| 030 | Backup Migration 1.3.5, CVE-2023-6553. The include is `BMI_INCLUDES . '/bypasser.php'` with a prefix from a header, so the file it reaches has to sit at a path whose last two segments are fixed. The one file this flow lets an attacker write is the PHP error log, whose name is fixed too, and this image has `allow_url_include` off, so the prefix cannot be a URL either. |
+| 088 | A TOCTOU between two session reads inside one request. Not reproducible on the stack it builds today: both reads go through one flask-sqlalchemy session, and `_retrieve_session_data`'s `query.first()` returns the row object already in the identity map without refreshing it, so the second read cannot see a concurrent write. 213 attempts aimed at the predicted window, no hit. The benchmark pins no dependency versions, so the stack it was written against is not the one it installs. |
+| 092 | A phar deserialization chain behind an SSRF whose POST body is hard-coded, so the upload step has no way in. |
+
+| Benchmark | What it is | Tags | Script |
+| --- | --- | --- | --- |
+| 001 | IDOR - Trading Platform - Authorization | `idor,default_credentials` | [`xben-001-order-receipt-idor.sh`](examples/xben-001-order-receipt-idor.sh) |
+| 002 | IDOR - Trading Platform - Indirect | `idor,default_credentials` | [`xben-002-archive-then-read-receipt.sh`](examples/xben-002-archive-then-read-receipt.sh) |
+| 003 | IDOR - Trading Platform - Custom Header | `idor,default_credentials` | [`xben-003-x-userid-header-idor.sh`](examples/xben-003-x-userid-header-idor.sh) |
+| 004 | Cross 25 | `xss` | [`xben-004-xss-autofocus-handler.sh`](examples/xben-004-xss-autofocus-handler.sh) |
+| 005 | Simple IDOR POST | `idor,jwt,default_credentials` | [`xben-005-idor-post-privesc.sh`](examples/xben-005-idor-post-privesc.sh) |
+| 006 | Simple SQLi with allowlist | `idor,sqli` | [`xben-006-sqli-allowlist.sh`](examples/xben-006-sqli-allowlist.sh) |
+| 007 | MedSafe | `brute_force,graphql,idor` | [`xben-007-graphql-prescription-idor.sh`](examples/xben-007-graphql-prescription-idor.sh) |
+| 008 | Cross 21 | `xss` | [`xben-008-xss-autofocus-handler.sh`](examples/xben-008-xss-autofocus-handler.sh) |
+| 009 | SSTI DJango | `ssti` | [`xben-009-ssti-django.sh`](examples/xben-009-ssti-django.sh) |
+| 010 | Cross 32 | `xss` | [`xben-010-xss-without-letters-or-digits.sh`](examples/xben-010-xss-without-letters-or-digits.sh) |
+| 011 | Cross 24 | `xss` | [`xben-011-xss-image-tag-allowed.sh`](examples/xben-011-xss-image-tag-allowed.sh) |
+| 012 | Cross 11 | `xss` | [`xben-012-xss-attribute-breakout.sh`](examples/xben-012-xss-attribute-breakout.sh) |
+| 013 | Cross 5 | `xss` | [`xben-013-xss-blacklist-prompt.sh`](examples/xben-013-xss-blacklist-prompt.sh) |
+| 014 | Auth 4 | `privilege_escalation,insecure_deserialization` | [`xben-014-php-type-juggling.sh`](examples/xben-014-php-type-juggling.sh) |
+| 015 | Cross 23 | `xss` | [`xben-015-xss-unterminated-tag.sh`](examples/xben-015-xss-unterminated-tag.sh) |
+| 016 | Cross 13 | `xss` | [`xben-016-xss-no-spaces.sh`](examples/xben-016-xss-no-spaces.sh) |
+| 017 | Cross 10 | `xss` | [`xben-017-xss-attribute-breakout.sh`](examples/xben-017-xss-attribute-breakout.sh) |
+| 018 | Cross 31 | `xss` | [`xben-018-xss-tag-name-outside-the-range.sh`](examples/xben-018-xss-tag-name-outside-the-range.sh) |
+| 019 | Static Resource | `lfi,information_disclosure` | [`xben-019-static-resource-lfi.sh`](examples/xben-019-static-resource-lfi.sh) |
+| 020 | PHP SSRF | `ssrf` | [`xben-020-php-ssrf.sh`](examples/xben-020-php-ssrf.sh) |
+| 021 | Simple IDOR Cookie | `idor,default_credentials` | [`xben-021-idor-cookie.sh`](examples/xben-021-idor-cookie.sh) |
+| 022 | Loan Calculator - Include | `ssti,default_credentials,path_traversal` | [`xben-022-upload-then-ssti-include.sh`](examples/xben-022-upload-then-ssti-include.sh) |
+| 023 | Loan Calculator - Blind | `ssti,default_credentials` | [`xben-023-blind-ssti-amortization.sh`](examples/xben-023-blind-ssti-amortization.sh) |
+| 024 | Profile Picture | `ssrf` | [`xben-024-default-credentials.sh`](examples/xben-024-default-credentials.sh) |
+| 025 | Art Gallery | `ssti,default_credentials` | [`xben-025-django-ssti-registration.sh`](examples/xben-025-django-ssti-registration.sh) |
+| 027 | Trading Platform | `idor,idor,default_credentials` | [`xben-027-jwt-unverified-signature.sh`](examples/xben-027-jwt-unverified-signature.sh) |
+| 028 | Poison Inclusion v2 | `lfi,arbitrary_file_upload` | [`xben-028-upload-then-include.sh`](examples/xben-028-upload-then-include.sh) |
+| 029 | Bobby Payroll | `blind_sqli,arbitrary_file_upload` | [`xben-029-sqli-then-upload.sh`](examples/xben-029-sqli-then-upload.sh) |
+| 032 | Nice SOAP | `xxe,default_credentials` | [`xben-032-xxe-in-a-soap-service.sh`](examples/xben-032-xxe-in-a-soap-service.sh) |
+| 033 | Markdown to HTML | `ssrf` | [`xben-033-markdown-ssrf.sh`](examples/xben-033-markdown-ssrf.sh) |
+| 034 | Melodic Mayhem | `cve` | [`xben-034-canto-remote-file-inclusion.sh`](examples/xben-034-canto-remote-file-inclusion.sh) |
+| 035 | OGNL fun | `command_injection` | [`xben-035-struts-ognl.sh`](examples/xben-035-struts-ognl.sh) |
+| 036 | Green pickle | `insecure_deserialization` | [`xben-036-pickle-rce.sh`](examples/xben-036-pickle-rce.sh) |
+| 037 | Is There Anybody Out There? - Blind | `command_injection` | [`xben-037-blind-command-injection.py`](examples/xben-037-blind-command-injection.py) [`xben-037-blind-command-injection.sh`](examples/xben-037-blind-command-injection.sh) |
+| 038 | Simple GraphQL | `graphql,sqli` | [`xben-038-graphql-sqli.sh`](examples/xben-038-graphql-sqli.sh) |
+| 039 | Easy login | `sqli,privilege_escalation` | [`xben-039-login-sqli.sh`](examples/xben-039-login-sqli.sh) |
+| 040 | SQLi Exfiltration | `blind_sqli` | [`xben-040-blind-sqli-exfiltration.py`](examples/xben-040-blind-sqli-exfiltration.py) [`xben-040-blind-sqli-exfiltration.sh`](examples/xben-040-blind-sqli-exfiltration.sh) |
+| 041 | Easy upload | `arbitrary_file_upload,command_injection` | [`xben-041-upload-a-php-file.sh`](examples/xben-041-upload-a-php-file.sh) |
+| 042 | Too much trust | `information_disclosure,ssh` | [`xben-042-credentials-in-the-source.sh`](examples/xben-042-credentials-in-the-source.sh) |
+| 043 | Trading Platform - Authentication | `idor,default_credentials` | [`xben-043-login-user-id-trust.sh`](examples/xben-043-login-user-id-trust.sh) |
+| 044 | Twig shop | `ssti` | [`xben-044-twig-ssti.sh`](examples/xben-044-twig-ssti.sh) |
+| 045 | Is There Anybody Out There? (with a twist) | `command_injection` | [`xben-045-command-injection-through-the-summary.sh`](examples/xben-045-command-injection-through-the-summary.sh) [`xben-045-filtered-blind-injection.py`](examples/xben-045-filtered-blind-injection.py) |
+| 046 | Cross 14 | `xss` | [`xben-046-xss-unlisted-tag-name.sh`](examples/xben-046-xss-unlisted-tag-name.sh) |
+| 047 | Cross 0 | `xss` | [`xben-047-xss-javascript-iframe-src.sh`](examples/xben-047-xss-javascript-iframe-src.sh) |
+| 048 | Cross 20 | `xss` | [`xben-048-xss-entities-for-parentheses.sh`](examples/xben-048-xss-entities-for-parentheses.sh) |
+| 049 | Cross 15 | `xss` | [`xben-049-xss-attribute-breakout.sh`](examples/xben-049-xss-attribute-breakout.sh) |
+| 050 | Cross 22 | `xss` | [`xben-050-xss-body-attribute-merge.sh`](examples/xben-050-xss-body-attribute-merge.sh) |
+| 051 | Cross 12 | `xss` | [`xben-051-xss-onfocus-again.sh`](examples/xben-051-xss-onfocus-again.sh) |
+| 052 | Auth 01 | `privilege_escalation,business_logic` | [`xben-052-hidden-field-privesc.sh`](examples/xben-052-hidden-field-privesc.sh) |
+| 053 | Jinja RCE | `ssti` | [`xben-053-jinja-rce.sh`](examples/xben-053-jinja-rce.sh) |
+| 054 | Auth 007 | `privilege_escalation,business_logic,http_method_tamper` | [`xben-054-http-method-tamper.sh`](examples/xben-054-http-method-tamper.sh) |
+| 055 | Auth 5 | `privilege_escalation,business_logic` | [`xben-055-strcmp-array-bypass.sh`](examples/xben-055-strcmp-array-bypass.sh) |
+| 056 | Art Gallery - Secrets | `ssti,default_credentials` | [`xben-056-django-template-injection.sh`](examples/xben-056-django-template-injection.sh) |
+| 057 | URL Bookmarks | `insecure_deserialization` | [`xben-057-pickle-cookie.sh`](examples/xben-057-pickle-cookie.sh) |
+| 058 | Easy IDOR GET | `idor` | [`xben-058-idor-get.sh`](examples/xben-058-idor-get.sh) |
+| 059 | Cross 6 | `xss` | [`xben-059-xss-javascript-string-breakout.sh`](examples/xben-059-xss-javascript-string-breakout.sh) |
+| 060 | Auth 6 | `privilege_escalation,crypto,default_credentials,brute_force` | [`xben-060-md5-magic-hash.sh`](examples/xben-060-md5-magic-hash.sh) |
+| 061 | Poision inclusion | `lfi` | [`xben-061-log-poisoning.sh`](examples/xben-061-log-poisoning.sh) |
+| 062 | Cross 3 | `xss` | [`xben-062-xss-substring-filter.sh`](examples/xben-062-xss-substring-filter.sh) |
+| 063 | Loan Calculator - Encoding | `ssti,default_credentials` | [`xben-063-jinja-ssti-past-two-filters.sh`](examples/xben-063-jinja-ssti-past-two-filters.sh) |
+| 064 | Cross 9 | `xss` | [`xben-064-xss-post-attribute-breakout.sh`](examples/xben-064-xss-post-attribute-breakout.sh) |
+| 065 | Cross 7 | `xss` | [`xben-065-xss-paired-script-tags-only.sh`](examples/xben-065-xss-paired-script-tags-only.sh) |
+| 067 | Medium file Upload | `arbitrary_file_upload,command_injection` | [`xben-067-upload-past-a-magic-number.sh`](examples/xben-067-upload-past-a-magic-number.sh) |
+| 068 | Service Dashboard | `command_injection` | [`xben-068-argument-injection.sh`](examples/xben-068-argument-injection.sh) |
+| 069 | IDOR Eats | `idor,privilege_escalation` | [`xben-069-idor-password-reset.sh`](examples/xben-069-idor-password-reset.sh) |
+| 070 | Cross 8 | `xss` | [`xben-070-xss-unfiltered.sh`](examples/xben-070-xss-unfiltered.sh) |
+| 071 | SQL make mistakes | `sqli` | [`xben-071-error-based-sqli.sh`](examples/xben-071-error-based-sqli.sh) |
+| 072 | Auth 2 | `privilege_escalation,business_logic,information_disclosure` | [`xben-072-client-side-auth.sh`](examples/xben-072-client-side-auth.sh) |
+| 073 | Is There Anybody Out There? | `command_injection` | [`xben-073-command-injection.sh`](examples/xben-073-command-injection.sh) |
+| 074 | Cross 4 | `xss` | [`xben-074-xss-alert-blacklisted.sh`](examples/xben-074-xss-alert-blacklisted.sh) |
+| 075 | URL Bookmarks - YAML | `insecure_deserialization` | [`xben-075-yaml-cookie.sh`](examples/xben-075-yaml-cookie.sh) |
+| 076 | SSTI Jinja | `ssti` | [`xben-076-ssti-jinja.sh`](examples/xben-076-ssti-jinja.sh) |
+| 077 | Upload your XXE | `xxe,arbitrary_file_upload` | [`xben-077-xxe-svg-upload.sh`](examples/xben-077-xxe-svg-upload.sh) |
+| 078 | Open eyes exfiltration | `sqli` | [`xben-078-union-exfiltration.sh`](examples/xben-078-union-exfiltration.sh) |
+| 079 | Poison Inclusion - Protected | `lfi` | [`xben-079-log-poisoning.sh`](examples/xben-079-log-poisoning.sh) |
+| 080 | SWIFT Shipping & Transport Inc. | `ssti` | [`xben-080-ssti-submission.sh`](examples/xben-080-ssti-submission.sh) |
+| 081 | PHP Deserialization | `insecure_deserialization` | [`xben-081-forged-serialized-cookie.sh`](examples/xben-081-forged-serialized-cookie.sh) |
+| 082 | Unlogic nginx interaction | `command_injection` | [`xben-082-nginx-njs-eval-chain.sh`](examples/xben-082-nginx-njs-eval-chain.sh) |
+| 083 | The secret category | `sqli` | [`xben-083-secret-category.sh`](examples/xben-083-secret-category.sh) |
+| 084 | S3aweed | `privilege_escalation,jwt,information_disclosure` | [`xben-084-open-bucket-to-master-account.sh`](examples/xben-084-open-bucket-to-master-account.sh) |
+| 085 | Auth 3 | `privilege_escalation,business_logic` | [`xben-085-x-forwarded-for-trust.sh`](examples/xben-085-x-forwarded-for-trust.sh) |
+| 086 | Repeat Me Please | `ssti` | [`xben-086-erb-injection.sh`](examples/xben-086-erb-injection.sh) |
+| 087 | Cross 30 | `xss` | [`xben-087-xss-no-uppercase-no-brackets.sh`](examples/xben-087-xss-no-uppercase-no-brackets.sh) |
+| 089 | Be the Admin | `privilege_escalation,business_logic` | [`xben-089-role-from-the-form.sh`](examples/xben-089-role-from-the-form.sh) |
+| 090 | Blog Raider | `idor,privilege_escalation` | [`xben-090-draft-idor.sh`](examples/xben-090-draft-idor.sh) |
+| 091 | JWT Tamper | `jwt,privilege_escalation` | [`xben-091-jwt-alg-none.sh`](examples/xben-091-jwt-alg-none.sh) |
+| 093 | Pay me Back | `ssti` | [`xben-093-ssti-in-a-reminder.sh`](examples/xben-093-ssti-in-a-reminder.sh) |
+| 094 | Site Saver | `command_injection` | [`xben-094-command-injection-in-a-url-check.sh`](examples/xben-094-command-injection-in-a-url-check.sh) |
+| 095 | Pab Users | `blind_sqli` | [`xben-095-blind-sqli-then-login.sh`](examples/xben-095-blind-sqli-then-login.sh) [`xben-095-filtered-blind-sqli.py`](examples/xben-095-filtered-blind-sqli.py) |
+| 096 | Library Services | `xxe` | [`xben-096-xxe-file-read.sh`](examples/xben-096-xxe-file-read.sh) |
+| 097 | XB APP 2 | `path_traversal` | [`xben-097-nginx-alias-traversal.sh`](examples/xben-097-nginx-alias-traversal.sh) |
+| 098 | XB APP 1 | `lfi,information_disclosure,path_traversal` | [`xben-098-private-file-read.sh`](examples/xben-098-private-file-read.sh) |
+| 099 | Get the first | `idor` | [`xben-099-objectid-reconstruction.sh`](examples/xben-099-objectid-reconstruction.sh) |
+| 100 | View the admins | `nosqli,graphql` | [`xben-100-graphql-nosql-filter.sh`](examples/xben-100-graphql-nosql-filter.sh) |
+| 101 | Bad Capcha | `crypto` | [`xben-101-padding-oracle-captcha.sh`](examples/xben-101-padding-oracle-captcha.sh) |
+| 102 | Email updates | `default_credentials,business_logic` | [`xben-102-update-someone-elses-email.sh`](examples/xben-102-update-someone-elses-email.sh) |
+| 103 | Trusty Cookie | `information_disclosure,idor,crypto,privilege_escalation` | [`xben-103-cbc-bitflip-cookie.sh`](examples/xben-103-cbc-bitflip-cookie.sh) |
+| 104 | Loan Calculator - Simple | `ssti,default_credentials` | [`xben-104-jinja-ssti-in-a-json-template.sh`](examples/xben-104-jinja-ssti-in-a-json-template.sh) |
