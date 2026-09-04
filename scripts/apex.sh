@@ -40,9 +40,36 @@ flag() {
     printf 'FLAG{%s_%s}\n' "$(echo "$NAME" | tr 'A-Z-' 'a-z_')" "$digest"
 }
 
+# Where the build actually happens: a copy of the benchmark's `src`, never the
+# corpus itself.
+#
+# Two reasons, and only the first is about portability. This machine is arm64
+# and one image the corpus names was never published for it, so a line has to
+# change; changing it in `~/Ref` would edit the thing being measured, and a
+# result from an edited benchmark is worth less than no result. And a staged
+# copy gives every later fix of that kind one place to live, listed below,
+# instead of a note in a README saying what to patch by hand.
+#
+# Every substitution, and why:
+#
+#   * `eclipse-temurin:17-jre-alpine` publishes no arm64 image at all, and the
+#     Dockerfile that uses it creates its user with BusyBox's `adduser` flags —
+#     so the substitute has to be another Alpine image, not another JRE.
+#     Amazon Corretto 17 on Alpine is both, and runs the same jar.
+STAGE="${APEX_STAGE:-${TMPDIR:-/tmp}/apex-stage}/$NAME"
+
+stage() {
+    rm -rf "$STAGE"
+    mkdir -p "$(dirname "$STAGE")"
+    cp -r "$DIR" "$STAGE"
+    find "$STAGE" -name Dockerfile -print0 |
+        xargs -0 -r sed -i 's|eclipse-temurin:17-jre-alpine|amazoncorretto:17-alpine|'
+}
+
 compose() {
-    FLAG="$(flag)" docker compose --project-directory "$DIR" \
-        -f "$DIR/docker-compose.yml" -p "$PROJECT" "$@"
+    [ -d "$STAGE" ] || stage
+    FLAG="$(flag)" docker compose --project-directory "$STAGE" \
+        -f "$STAGE/docker-compose.yml" -p "$PROJECT" "$@"
 }
 
 # Every published port, as `service container_port http://127.0.0.1:host_port`,
@@ -113,25 +140,37 @@ print(" ".join(bad))
 
 case "$ACTION" in
     build)
-        compose build ${FLAG_BUILD_ARGS:-} >&2 || exit 1
+        stage
+        compose build >&2 || exit 1
         ;;
     up)
+        stage
         compose up -d --build >&2 || exit 1
         wait_healthy "${APEX_WAIT:-180}" || true
-        primary="$(ports | head -1 | awk '{print $3}')"
         # A healthcheck is the daemon's opinion and half of these services
-        # declare none, so `up` also waits for the port to answer. Answering at
+        # declare none, so `up` also waits for the ports to answer. Answering at
         # all is the bar: a 404 is a running application, and a connection
         # refused is a script that will report a benchmark resisting when what
         # actually happened is that it started too early.
-        if [ -n "$primary" ]; then
+        #
+        # Every published port, not just the first. Several of these benchmarks
+        # are an application plus an admin bot plus a collector, and the exploit
+        # is not a shorter wait for using the bot before the application.
+        for answer in $(ports | awk '{print $3}'); do
             waited=0
             while [ "$waited" -lt "${APEX_ANSWER_WAIT:-90}" ]; do
-                curl -s -o /dev/null --max-time 3 "$primary" && break
+                curl -s -o /dev/null --max-time 3 "$answer" && break
                 sleep 2
                 waited=$((waited + 2))
             done
-        fi
+        done
+        # And then a moment more. Several of these applications open their
+        # database connection on the first request rather than at startup, so
+        # the port answering is not the same as the application working: what
+        # comes back is a 200 carrying a stack trace. There is no signal to
+        # wait for in that case, only time.
+        sleep "${APEX_SETTLE:-5}"
+        primary="$(ports | head -1 | awk '{print $3}')"
         # stdout is the URL a script is given, so the first published service
         # goes there alone and everything else has already gone to stderr.
         printf '%s\n' "$primary"
