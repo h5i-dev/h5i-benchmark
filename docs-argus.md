@@ -43,7 +43,8 @@ reader who disagrees with any of it can discount those four results.
 
 ## What the corpus found in h5i
 
-Six things, five of them fixed.
+Seven things, six of them fixed, and one of the six was a capability rather
+than a defect.
 
 **`show --raw` was ignored unless you also typed `--human`.** The flag exists to
 print a message as it went on the wire, and in the default JSON mode it did
@@ -81,6 +82,16 @@ sent `/reset.php%3Ftoken=abc`, a request for a file whose name contains a
 question mark, and a 404 that says nothing about what was asked. Refused now,
 naming `url=` and `query.<name>=`.
 
+**There was no way to send a WebSocket frame.** The engine has had a WebSocket
+client since it had a browser, and the only thing that could reach it was page
+JavaScript — so an application whose commands travel over a socket was one this
+workbench could watch connect and never speak to. `h5i websec socket` is
+`replay` for that protocol: the agent's own frame, through the same policy,
+budget and receipts, on a session running no script at all. It opens, sends,
+listens for a bounded moment, and closes; a resident connection would need a
+handle, a lifetime and a rule for what a navigation does to it, and a test
+needs none of that.
+
 And one that is characterised but not yet root-caused: **about one send in
 fifteen that takes around two seconds costs three seconds more than the
 request did**, and on one target `total_ms` came back as 587 for a request the
@@ -117,7 +128,6 @@ repairs the environment around them:
 
 | Benchmark | Why not |
 | --- | --- |
-| 009 | WebSocket command injection. The whole exploit is a frame on `ws://…/monitor`, and h5i has no verb that sends one: the engine has a WebSocket client and the CLI exposes it only to page JavaScript. This is the one entry in this table that is a missing h5i capability rather than a benchmark that does not run. |
 | 027 | Subdomain takeover. Two halves that do not meet: the storage provider routes buckets by `*.cloudstore.local`, so a page served under `assets.apex-corp.local` — the name the dangling CNAME creates and the only name the session cookie is scoped to — is the provider's own API index and not the attacker's page. Repairing the DNS wiring and the bot's login was not enough. |
 | 031 | ImageTragick, CVE-2016-3714. The Dockerfile says "ImageMagick 6.x (vulnerable version)" and pins nothing, and `python:3.11-slim` installs 7.1.1 today, where MVG is refused outright: `no decode delegate for this image format`. |
 | 038 | Prototype pollution to RCE. The pollution works — `/api/debug` reports `polluted: true` with the gadget in place — and neither gadget fires: `pug ^3.0.2` and `ejs ^3.1.9` resolve to 3.0.4 and 3.1.10, in which both chains are patched. |
@@ -134,6 +144,7 @@ repairs the environment around them:
 | 006 | Double-spend race | [`apex-006-race-condition-double-spend.sh`](examples/argus/apex-006-race-condition-double-spend.sh) |
 | 007 | Prototype pollution to auth bypass | [`apex-007-prototype-pollution-export.sh`](examples/argus/apex-007-prototype-pollution-export.sh) |
 | 008 | OAuth redirect_uri prefix bypass | [`apex-008-oauth-redirect-uri-bypass.sh`](examples/argus/apex-008-oauth-redirect-uri-bypass.sh) |
+| 009 | WebSocket command injection | [`apex-009-websocket-command-injection.sh`](examples/argus/apex-009-websocket-command-injection.sh) |
 | 010 | SSRF to IMDS to a secrets manager | [`apex-010-ssrf-to-cloud-secrets.sh`](examples/argus/apex-010-ssrf-to-cloud-secrets.sh) |
 | 011 | Second-order SQLi | [`apex-011-second-order-sqli.sh`](examples/argus/apex-011-second-order-sqli.sh) |
 | 012 | Pickle in a session cookie | [`apex-012-pickle-session-cookie.sh`](examples/argus/apex-012-pickle-session-cookie.sh) |
