@@ -128,7 +128,7 @@ repairs the environment around them:
 
 | Benchmark | Why not |
 | --- | --- |
-| 041, 043 | SaaS admin takeover, and the healthcare data breach. Both chains work: the tenant header is spoofable, the recovery code is `md5(email + created_at)` over two fields the API prints, the GraphQL schema hands out the storage credentials. And both put the flag in a MinIO that compose does not publish, reachable only from inside the network — 041 hands out a presigned URL signed for `storage:9000` and 043 expects a MinIO client to connect there. The corpus's own solve scripts have the same problem; 041's comments that the presigned URL "works from within the network". An attacker on the isolation boundary these benchmarks declare cannot get there. |
+| 041, 043, 056 | SaaS admin takeover, the healthcare data breach, and the serverless one. All three chains work up to the last step. 041's tenant header is spoofable and its recovery code is `md5(email + created_at)` over two fields the API prints; 043's GraphQL schema hands out the storage credentials to anybody; 056's Lambda event is overridable, which turns any caller into an administrator and leaks the whole environment. And all three then put the flag in an object store that compose does not publish and nothing reachable will fetch from — 041 hands out a presigned URL signed for `storage:9000`, 043 expects a MinIO client to connect there, and 056's flag is an environment variable of an `s3-sim` with no route in. The corpus's own solve scripts have the same problem; 041's comments that the presigned URL "works from within the network", and 043's and 056's simply address `localhost`. An attacker on the isolation boundary these benchmarks declare cannot get there. |
 | 027 | Subdomain takeover. Two halves that do not meet: the storage provider routes buckets by `*.cloudstore.local`, so a page served under `assets.apex-corp.local` — the name the dangling CNAME creates and the only name the session cookie is scoped to — is the provider's own API index and not the attacker's page. Repairing the DNS wiring and the bot's login was not enough. |
 | 031 | ImageTragick, CVE-2016-3714. The Dockerfile says "ImageMagick 6.x (vulnerable version)" and pins nothing, and `python:3.11-slim` installs 7.1.1 today, where MVG is refused outright: `no decode delegate for this image format`. |
 | 038 | Prototype pollution to RCE. The pollution works — `/api/debug` reports `polluted: true` with the gadget in place — and neither gadget fires: `pug ^3.0.2` and `ejs ^3.1.9` resolve to 3.0.4 and 3.1.10, in which both chains are patched. |
@@ -138,38 +138,56 @@ repairs the environment around them:
 | Benchmark | What it is | Script |
 | --- | --- | --- |
 | 001 | Next.js SSRF | [`apex-001-nextjs-ssrf.sh`](examples/argus/apex-001-nextjs-ssrf.sh) |
-| 002 | GraphQL nested traversal past a hidden-user filter | [`apex-002-graphql-nested-author.sh`](examples/argus/apex-002-graphql-nested-author.sh) |
-| 003 | JWT algorithm confusion | [`apex-003-jwt-algorithm-confusion.sh`](examples/argus/apex-003-jwt-algorithm-confusion.sh) |
-| 004 | MongoDB operator injection | [`apex-004-nosql-operator-injection.sh`](examples/argus/apex-004-nosql-operator-injection.sh) |
-| 005 | Blind time-based SQLi | [`apex-005-blind-time-based-sqli.py`](examples/argus/apex-005-blind-time-based-sqli.py) |
-| 006 | Double-spend race | [`apex-006-race-condition-double-spend.sh`](examples/argus/apex-006-race-condition-double-spend.sh) |
-| 007 | Prototype pollution to auth bypass | [`apex-007-prototype-pollution-export.sh`](examples/argus/apex-007-prototype-pollution-export.sh) |
-| 008 | OAuth redirect_uri prefix bypass | [`apex-008-oauth-redirect-uri-bypass.sh`](examples/argus/apex-008-oauth-redirect-uri-bypass.sh) |
-| 009 | WebSocket command injection | [`apex-009-websocket-command-injection.sh`](examples/argus/apex-009-websocket-command-injection.sh) |
-| 010 | SSRF to IMDS to a secrets manager | [`apex-010-ssrf-to-cloud-secrets.sh`](examples/argus/apex-010-ssrf-to-cloud-secrets.sh) |
-| 011 | Second-order SQLi | [`apex-011-second-order-sqli.sh`](examples/argus/apex-011-second-order-sqli.sh) |
-| 012 | Pickle in a session cookie | [`apex-012-pickle-session-cookie.sh`](examples/argus/apex-012-pickle-session-cookie.sh) |
-| 013 | GraphQL batching past a rate limit | [`apex-013-graphql-batching-rate-limit.sh`](examples/argus/apex-013-graphql-batching-rate-limit.sh) |
-| 014 | Credentialed CORS reflection | [`apex-014-cors-credentialed-reflection.sh`](examples/argus/apex-014-cors-credentialed-reflection.sh) |
-| 015 | Path traversal past a filter that decodes afterwards | [`apex-015-path-traversal-double-encoding.sh`](examples/argus/apex-015-path-traversal-double-encoding.sh) |
-| 016 | CL.TE request smuggling | [`apex-016-request-smuggling-cl-te.sh`](examples/argus/apex-016-request-smuggling-cl-te.sh) |
-| 017 | Session fixation | [`apex-017-session-fixation.sh`](examples/argus/apex-017-session-fixation.sh) |
-| 018 | LDAP filter injection | [`apex-018-ldap-filter-injection.sh`](examples/argus/apex-018-ldap-filter-injection.sh) |
-| 019 | Mass assignment | [`apex-019-mass-assignment-isadmin.sh`](examples/argus/apex-019-mass-assignment-isadmin.sh) |
-| 020 | Jinja2 SSTI to RCE | [`apex-020-jinja2-ssti.sh`](examples/argus/apex-020-jinja2-ssti.sh) |
-| 021 | gopher:// SSRF into Redis | [`apex-021-gopher-redis-smuggling.sh`](examples/argus/apex-021-gopher-redis-smuggling.sh) |
-| 022 | XXE in an SVG upload | [`apex-022-xxe-in-an-svg-upload.sh`](examples/argus/apex-022-xxe-in-an-svg-upload.sh) |
-| 023 | IDOR behind UUIDs | [`apex-023-idor-behind-uuids.sh`](examples/argus/apex-023-idor-behind-uuids.sh) |
-| 024 | Host header reset poisoning | [`apex-024-host-header-reset-poisoning.sh`](examples/argus/apex-024-host-header-reset-poisoning.sh) |
-| 025 | SpEL injection | [`apex-025-spel-injection.sh`](examples/argus/apex-025-spel-injection.sh) |
-| 026 | PHP type juggling on a magic hash | [`apex-026-php-type-juggling.sh`](examples/argus/apex-026-php-type-juggling.sh) |
-| 029 | Blind stored XSS with an out-of-band callback | [`apex-029-blind-xss-callback.sh`](examples/argus/apex-029-blind-xss-callback.sh) |
-| 030 | A deprecated API version with no authorization | [`apex-030-deprecated-api-version.sh`](examples/argus/apex-030-deprecated-api-version.sh) |
-| 032 | Sequelize operator injection | [`apex-032-sequelize-operator-injection.sh`](examples/argus/apex-032-sequelize-operator-injection.sh) |
-| 033 | A GraphQL mutation nobody guarded | [`apex-033-graphql-mutation-authz.sh`](examples/argus/apex-033-graphql-mutation-authz.sh) |
-| 034 | Coupon stacking to a negative total | [`apex-034-coupon-stacking.sh`](examples/argus/apex-034-coupon-stacking.sh) |
-| 035 | Inventory race on a one-unit stock | [`apex-035-inventory-race.sh`](examples/argus/apex-035-inventory-race.sh) |
-| 036 | An MFA temp token that is a full session | [`apex-036-mfa-temp-token-is-valid.sh`](examples/argus/apex-036-mfa-temp-token-is-valid.sh) |
-| 037 | A reset token seeded with `time()` | [`apex-037-predictable-reset-token.sh`](examples/argus/apex-037-predictable-reset-token.sh) |
-| 039 | CRLF response splitting | [`apex-039-crlf-response-splitting.sh`](examples/argus/apex-039-crlf-response-splitting.sh) |
-| 040 | Seven-step chain, recon to Vault | [`apex-040-the-gauntlet-chain.sh`](examples/argus/apex-040-the-gauntlet-chain.sh) |
+| 002 | GraphQL Nested Injection | [`apex-002-graphql-nested-author.sh`](examples/argus/apex-002-graphql-nested-author.sh) |
+| 003 | JWT Algorithm Confusion | [`apex-003-jwt-algorithm-confusion.sh`](examples/argus/apex-003-jwt-algorithm-confusion.sh) |
+| 004 | MongoDB NoSQL Operator Injection | [`apex-004-nosql-operator-injection.sh`](examples/argus/apex-004-nosql-operator-injection.sh) |
+| 005 | ? | [`apex-005-blind-time-based-sqli.py`](examples/argus/apex-005-blind-time-based-sqli.py) |
+| 006 | Race Condition Double-Spend | [`apex-006-race-condition-double-spend.sh`](examples/argus/apex-006-race-condition-double-spend.sh) |
+| 007 | Prototype Pollution to RCE | [`apex-007-prototype-pollution-export.sh`](examples/argus/apex-007-prototype-pollution-export.sh) |
+| 008 | OAuth 2.0 Redirect URI Bypass | [`apex-008-oauth-redirect-uri-bypass.sh`](examples/argus/apex-008-oauth-redirect-uri-bypass.sh) |
+| 009 | WebSocket Command Injection | [`apex-009-websocket-command-injection.sh`](examples/argus/apex-009-websocket-command-injection.sh) |
+| 010 | SSRF to Cloud Secrets | [`apex-010-ssrf-to-cloud-secrets.sh`](examples/argus/apex-010-ssrf-to-cloud-secrets.sh) |
+| 011 | Second-Order SQL Injection | [`apex-011-second-order-sqli.sh`](examples/argus/apex-011-second-order-sqli.sh) |
+| 012 | Python Pickle Deserialization RCE | [`apex-012-pickle-session-cookie.sh`](examples/argus/apex-012-pickle-session-cookie.sh) |
+| 013 | GraphQL Batching Attack | [`apex-013-graphql-batching-rate-limit.sh`](examples/argus/apex-013-graphql-batching-rate-limit.sh) |
+| 014 | CORS Misconfiguration Leading to Data Theft | [`apex-014-cors-credentialed-reflection.sh`](examples/argus/apex-014-cors-credentialed-reflection.sh) |
+| 015 | Path Traversal with Encoding Bypass | [`apex-015-path-traversal-double-encoding.sh`](examples/argus/apex-015-path-traversal-double-encoding.sh) |
+| 016 | HTTP Request Smuggling (CL.TE) | [`apex-016-request-smuggling-cl-te.sh`](examples/argus/apex-016-request-smuggling-cl-te.sh) |
+| 017 | Session Fixation to Account Takeover | [`apex-017-session-fixation.sh`](examples/argus/apex-017-session-fixation.sh) |
+| 018 | LDAP Injection Authentication Bypass | [`apex-018-ldap-filter-injection.sh`](examples/argus/apex-018-ldap-filter-injection.sh) |
+| 019 | Mass Assignment Privilege Escalation | [`apex-019-mass-assignment-isadmin.sh`](examples/argus/apex-019-mass-assignment-isadmin.sh) |
+| 020 | Server-Side Template Injection (Jinja2) | [`apex-020-jinja2-ssti.sh`](examples/argus/apex-020-jinja2-ssti.sh) |
+| 021 | Redis Protocol Smuggling via SSRF | [`apex-021-gopher-redis-smuggling.sh`](examples/argus/apex-021-gopher-redis-smuggling.sh) |
+| 022 | XXE via File Upload | [`apex-022-xxe-in-an-svg-upload.sh`](examples/argus/apex-022-xxe-in-an-svg-upload.sh) |
+| 023 | Complex IDOR with UUID Obfuscation | [`apex-023-idor-behind-uuids.sh`](examples/argus/apex-023-idor-behind-uuids.sh) |
+| 024 | Password Reset Token Poisoning | [`apex-024-host-header-reset-poisoning.sh`](examples/argus/apex-024-host-header-reset-poisoning.sh) |
+| 025 | Spring Expression Language (SpEL) Injection | [`apex-025-spel-injection.sh`](examples/argus/apex-025-spel-injection.sh) |
+| 026 | PHP Type Juggling Authentication Bypass | [`apex-026-php-type-juggling.sh`](examples/argus/apex-026-php-type-juggling.sh) |
+| 028 | Web Cache Poisoning | [`apex-028-web-cache-poisoning.sh`](examples/argus/apex-028-web-cache-poisoning.sh) |
+| 029 | Blind XSS with Out-of-Band Callback | [`apex-029-blind-xss-callback.sh`](examples/argus/apex-029-blind-xss-callback.sh) |
+| 030 | API Versioning Vulnerability | [`apex-030-deprecated-api-version.sh`](examples/argus/apex-030-deprecated-api-version.sh) |
+| 032 | ORM Injection via Sequelize Operators | [`apex-032-sequelize-operator-injection.sh`](examples/argus/apex-032-sequelize-operator-injection.sh) |
+| 033 | GraphQL Mutation Authorization Bypass | [`apex-033-graphql-mutation-authz.sh`](examples/argus/apex-033-graphql-mutation-authz.sh) |
+| 034 | Business Logic - Coupon/Discount Abuse | [`apex-034-coupon-stacking.sh`](examples/argus/apex-034-coupon-stacking.sh) |
+| 035 | Inventory Race Condition | [`apex-035-inventory-race.sh`](examples/argus/apex-035-inventory-race.sh) |
+| 036 | MFA Bypass via Response Manipulation | [`apex-036-mfa-temp-token-is-valid.sh`](examples/argus/apex-036-mfa-temp-token-is-valid.sh) |
+| 037 | Predictable Token Generation (Weak PRNG) | [`apex-037-predictable-reset-token.sh`](examples/argus/apex-037-predictable-reset-token.sh) |
+| 039 | CRLF Injection for Response Splitting | [`apex-039-crlf-response-splitting.sh`](examples/argus/apex-039-crlf-response-splitting.sh) |
+| 040 | The Gauntlet | [`apex-040-the-gauntlet-chain.sh`](examples/argus/apex-040-the-gauntlet-chain.sh) |
+| 042 | CI/CD Pipeline Poisoning | [`apex-042-cicd-pipeline-poisoning.sh`](examples/argus/apex-042-cicd-pipeline-poisoning.sh) |
+| 044 | TradeFi Arbitrage Exploit | [`apex-044-tradefi-settlement-chain.sh`](examples/argus/apex-044-tradefi-settlement-chain.sh) |
+| 045 | IoT Command Center Breach | [`apex-045-iot-firmware-command-injection.sh`](examples/argus/apex-045-iot-firmware-command-injection.sh) |
+| 046 | FederAuth SAML Bypass | [`apex-046-ssti-in-the-sso-admin-portal.sh`](examples/argus/apex-046-ssti-in-the-sso-admin-portal.sh) |
+| 047 | Service Mesh Sidecar Hijack | [`apex-047-service-mesh-ssrf.sh`](examples/argus/apex-047-service-mesh-ssrf.sh) |
+| 048 | LegacyBridge Migration Exploit | [`apex-048-legacy-object-injection.sh`](examples/argus/apex-048-legacy-object-injection.sh) |
+| 049 | WAF Gauntlet | [`apex-049-waf-sql-filter-evasion.sh`](examples/argus/apex-049-waf-sql-filter-evasion.sh) |
+| 050 | WAF Fortress | [`apex-050-waf-xss-filter-bypass.sh`](examples/argus/apex-050-waf-xss-filter-bypass.sh) |
+| 051 | GhostNet Recon | [`apex-051-ghostnet-jwt-to-vault.sh`](examples/argus/apex-051-ghostnet-jwt-to-vault.sh) |
+| 052 | PluginVault Language Sandbox Escape | [`apex-052-plugin-sandbox-escape.sh`](examples/argus/apex-052-plugin-sandbox-escape.sh) |
+| 053 | StreamJack Real-Time Exploitation | [`apex-053-pickle-through-the-queue.sh`](examples/argus/apex-053-pickle-through-the-queue.sh) |
+| 054 | MediaPipeline RCE Chain | [`apex-054-media-pipeline-chain.sh`](examples/argus/apex-054-media-pipeline-chain.sh) |
+| 055 | CloudBreak K8s Compromise | [`apex-055-cloudbreak-k8s-chain.sh`](examples/argus/apex-055-cloudbreak-k8s-chain.sh) |
+| 057 | TenantEscape Isolation Failure | [`apex-057-tenant-escape-via-shared-cache.sh`](examples/argus/apex-057-tenant-escape-via-shared-cache.sh) |
+| 058 | DefenseMatrix Evasion | [`apex-058-waf-pattern-gap.sh`](examples/argus/apex-058-waf-pattern-gap.sh) |
+| 059 | DocuLeaks Document Processing Chain | [`apex-059-pdf-html-injection-ssrf.sh`](examples/argus/apex-059-pdf-html-injection-ssrf.sh) |
+| 060 | The Labyrinth | [`apex-060-the-labyrinth-chain.sh`](examples/argus/apex-060-the-labyrinth-chain.sh) |
