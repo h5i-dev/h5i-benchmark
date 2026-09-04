@@ -7,11 +7,9 @@ Worked solutions to public pentesting corpora, implemented using
 The repository currently covers two corpora:
 
 * [XBOW Validation Benchmarks](https://github.com/xbow-engineering/validation-benchmarks) —
-  setup, runner usage, results, and coverage are documented in
-  [`examples/xben/README.md`](examples/xben/README.md).
+  see [`examples/xben/README.md`](examples/xben/README.md).
 * [Argus Validation Benchmarks](https://github.com/pensarai/argus-validation-benchmarks) —
-  setup, runner usage, results, and coverage are documented in
-  [`examples/argus/README.md`](examples/argus/README.md).
+  see [`examples/argus/README.md`](examples/argus/README.md).
 
 Each solution accepts a URL and prints a flag. The corpus-specific runner
 checks that output against the exact flag for that benchmark; a test passes
