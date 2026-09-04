@@ -1,8 +1,9 @@
 # h5i-benchmark
 
-Worked solutions to public pentesting corpora, implemented using
+Worked solutions to public pentesting corpora. A general-purpose agent running
+the standard Opus 5.0 model solved the benchmark instances using
 [h5i](https://github.com/h5i-dev/h5i), specifically `h5i browser` and the
-`h5i websec` plugin.
+`h5i websec` plugin, and produced the solutions in this repository.
 
 The repository currently covers two corpora:
 
@@ -17,10 +18,19 @@ only when the strings match.
 
 ## What this measures
 
-This repository does not claim to discover new vulnerabilities. The
-benchmarks and their solutions are public, and every payload here was written
-by a person who had read the application. Successfully completing a benchmark
-therefore says nothing about whether an agent can discover a vulnerability.
+The agent worked against running benchmark instances and used h5i to inspect
+the applications, develop the exploits, and retrieve the flags. It was not
+given the published writeups and did not directly consult them during the
+experiment. It used the ordinary, general-purpose Opus 5.0 model, not a model
+specially trained or fine-tuned for this benchmark.
+
+This is not, however, a clean test of previously unseen vulnerability
+discovery. The benchmarks and their writeups had already been public from
+multiple sources before the experiment. They may therefore have appeared in
+the model's training data, and this experiment cannot establish whether or how
+much that prior exposure affected the results. The repository makes no claim
+that these are new vulnerabilities or that the scores measure performance on
+truly novel targets.
 
 What this repository tests is the tool itself. Can h5i express the requests
 and interactions required by an exploit, send them accurately, record them,
@@ -32,10 +42,10 @@ failures are unambiguous. The exploit is already known to work; if a solution
 does not retrieve the expected flag, either the environment or h5i is missing
 something the scenario requires.
 
-h5i sends the requests it is given, records them, and shows the responses. It
-does not generate payloads or scan for vulnerabilities. The reasoning behind
-this separation is described in W1 of `docs/design/design-websec.md` in the h5i
-repository.
+The agent supplied the reasoning and payloads; h5i sent the requested traffic,
+recorded it, and exposed the responses. h5i itself does not generate payloads
+or scan for vulnerabilities. The reasoning behind this separation is
+described in W1 of `docs/design/design-websec.md` in the h5i repository.
 
 ## Common setup
 

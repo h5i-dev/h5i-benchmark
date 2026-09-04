@@ -11,21 +11,23 @@ Each script accepts a URL and prints a flag. Its output is checked against the f
 
 ## What this measures
 
-This repository does not claim to discover anything new. The benchmarks are public, and so are their solutions:
+The benchmarks are public, and so are their solutions:
 
 * [XBOW Validation Benchmark wiki](https://github.com/samugit83/redamon/wiki/XBOW-Validation-Benchmark)
 * [xben-benchmark-results](https://github.com/KeygraphHQ/xbow-validation-benchmarks/tree/main/xben-benchmark-results)
 * [apxlabs.ai/benchmark/xben](https://apxlabs.ai/benchmark/xben)
 
-Every vulnerability in the corpus had already been documented before this repository existed, and none of these scripts found an unknown bug. Successfully completing a benchmark therefore says nothing about whether an agent can discover a vulnerability.
+A general-purpose agent running the standard Opus 5.0 model worked against the running applications, used h5i to inspect and interact with them, developed the exploits, and retrieved the flags. The agent was not given these writeups and did not directly consult them during the experiment.
+
+That does not make this a clean evaluation of novel vulnerability discovery. The writeups above were available from multiple sources before the experiment and may have been present in the model's training data. This experiment cannot determine whether prior exposure influenced the results. It therefore makes no claim to have found unknown vulnerabilities or to measure performance on truly unseen targets.
 
 What this repository tests is the tool itself. Can h5i express the request required by an exploit, send it accurately, record it, and expose the response? Does it continue to do so across a hundred applications, rather than only the three it was originally tested against?
 
 A corpus with known answers is the right instrument for evaluating those questions because failures are unambiguous. The exploit is already known to work. If a script does not retrieve the expected flag, the missing capability is in h5i.
 
-## What this is not
+## Agent and tool roles
 
-Every payload in this repository was written by a person who had read the application. h5i sends the requests it is given, records them, and shows the responses. It does not generate payloads or scan for vulnerabilities.
+The agent supplied the reasoning and payloads. It used the ordinary, general-purpose Opus 5.0 model, not a model specially trained or fine-tuned for this benchmark. h5i sent the requested traffic, recorded it, and exposed the responses; it does not itself generate payloads or scan for vulnerabilities.
 
 The reasoning behind this separation is described in W1 of `docs/design/design-websec.md` in the h5i repository.
 

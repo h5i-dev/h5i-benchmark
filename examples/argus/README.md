@@ -1,9 +1,16 @@
 # The Argus Validation Benchmarks
 
 Worked solutions to the [Argus Validation Benchmarks](https://github.com/pensarai/argus-validation-benchmarks),
-alongside the XBOW ones this repository started with. Same instrument, second
-corpus: the exploits are known, so a script that does not return the exact flag
-is evidence about h5i rather than about the application.
+alongside the XBOW ones this repository started with. A general-purpose agent
+running the standard Opus 5.0 model worked against the running applications,
+using h5i to develop the exploits and retrieve the flags. It was not given the
+published writeups and did not directly consult them during the experiment.
+
+The benchmarks and writeups were nevertheless public before the experiment
+and may have appeared in the model's training data. Prior exposure therefore
+cannot be ruled out, and these results are not presented as a clean evaluation
+of novel vulnerability discovery. Their primary purpose is to show what h5i
+can and cannot express across a second corpus.
 
 See the [repository README](../../README.md) for the shared purpose, scope, and
 h5i setup.
