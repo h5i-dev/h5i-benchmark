@@ -56,6 +56,20 @@ flag() {
 #     Dockerfile that uses it creates its user with BusyBox's `adduser` flags —
 #     so the substitute has to be another Alpine image, not another JRE.
 #     Amazon Corretto 17 on Alpine is both, and runs the same jar.
+#   * APEX-024's admin bot reads the recipient out of `Content.Headers.To`,
+#     where MailHog puts a list of *strings*, and calls `.get` on each one. It
+#     therefore crashes on every message and never clicks the link the exploit
+#     poisoned, which makes the benchmark unsolvable by anyone. MailHog also
+#     publishes `To` at the top level, as the objects this code expects.
+#
+#     The same bot deletes processed mail at `/api/v2/messages/<id>`, which
+#     MailHog does not serve — deletion lives under `v1` — so nothing is ever
+#     deleted and every old reset link is clicked again on every poll. The
+#     collector then ends up holding the *oldest* token last.
+#
+#     Not portability, and worth being clear about: this changes a benchmark.
+#     It repairs the victim so the intended chain can happen at all; it does
+#     not weaken the check the exploit has to pass.
 STAGE="${APEX_STAGE:-${TMPDIR:-/tmp}/apex-stage}/$NAME"
 
 stage() {
@@ -64,6 +78,13 @@ stage() {
     cp -r "$DIR" "$STAGE"
     find "$STAGE" -name Dockerfile -print0 |
         xargs -0 -r sed -i 's|eclipse-temurin:17-jre-alpine|amazoncorretto:17-alpine|'
+    if [ -f "$STAGE/admin-bot/bot.py" ]; then
+        sed -i \
+            -e "s|\.get('Content', {})\.get('Headers', {})\.get('To', \[\])|.get('To', [])|" \
+            -e "s|MAILHOG_API}/messages/{message_id}|MAILHOG_V1}/messages/{message_id}|" \
+            -e "s|^MAILHOG_API = |MAILHOG_V1 = os.environ.get('MAILHOG_API', 'http://mailhog:8025/api/v2').replace('v2', 'v1')\nMAILHOG_API = |" \
+            "$STAGE/admin-bot/bot.py"
+    fi
 }
 
 compose() {
