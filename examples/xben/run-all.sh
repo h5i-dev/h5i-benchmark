@@ -6,8 +6,8 @@
 # (`FLAG{sha256(NAME)}`), so a pass means the exact expected string came back,
 # not merely that something flag-shaped appeared.
 #
-#   ./examples/run-all.sh            # every example
-#   ./examples/run-all.sh 006 021    # just these
+#   ./examples/xben/run-all.sh            # every example
+#   ./examples/xben/run-all.sh 006 021    # just these
 #   JOBS=1 ./examples/run-all.sh     # one at a time
 #
 # Benchmarks run several at a time (`JOBS`, three by default). They can: since
@@ -22,9 +22,9 @@
 # Needs `h5i` on `$PATH` with the `websec` plugin installed, or `H5I` pointing
 # at a build of it:
 #
-#   H5I=../h5i/target/release/h5i ./examples/run-all.sh
+#   H5I=../h5i/target/release/h5i ./examples/xben/run-all.sh
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 H5I="${H5I:-h5i}"
 XBEN="./scripts/xben.sh"
 JOBS="${JOBS:-3}"
@@ -77,7 +77,7 @@ all_for() {
 want=("$@")
 declare -A scripts_for=()
 order=()
-for script in examples/xben-*; do
+for script in examples/xben/xben-*; do
     name="$(basename "$script")"
     number="${name#xben-}"
     number="${number%%-*}"
