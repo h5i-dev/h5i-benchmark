@@ -46,5 +46,6 @@ for _ in $(seq 1 "$TIMES"); do
         --set "json.code=$COUPON" >/dev/null
 done
 
-send "$SESSION" req_0 --create --set method=POST --set path=/api/checkout \
+# `/api/orders/checkout`, not the `/api/checkout` the API's own index advertises.
+send "$SESSION" req_0 --create --set method=POST --set path=/api/orders/checkout \
     --set header.Content-Type=application/json | flag

@@ -46,45 +46,18 @@ flag() {
 # Two reasons, and only the first is about portability. This machine is arm64
 # and one image the corpus names was never published for it, so a line has to
 # change; changing it in `~/Ref` would edit the thing being measured, and a
-# result from an edited benchmark is worth less than no result. And a staged
-# copy gives every later fix of that kind one place to live, listed below,
-# instead of a note in a README saying what to patch by hand.
+# result from an edited benchmark is worth less than no result. And four of
+# these benchmarks are wired in a way that makes their own answer key
+# unreachable, which is a different problem with the same shape.
 #
-# Every substitution, and why:
-#
-#   * `eclipse-temurin:17-jre-alpine` publishes no arm64 image at all, and the
-#     Dockerfile that uses it creates its user with BusyBox's `adduser` flags —
-#     so the substitute has to be another Alpine image, not another JRE.
-#     Amazon Corretto 17 on Alpine is both, and runs the same jar.
-#   * APEX-024's admin bot reads the recipient out of `Content.Headers.To`,
-#     where MailHog puts a list of *strings*, and calls `.get` on each one. It
-#     therefore crashes on every message and never clicks the link the exploit
-#     poisoned, which makes the benchmark unsolvable by anyone. MailHog also
-#     publishes `To` at the top level, as the objects this code expects.
-#
-#     The same bot deletes processed mail at `/api/v2/messages/<id>`, which
-#     MailHog does not serve — deletion lives under `v1` — so nothing is ever
-#     deleted and every old reset link is clicked again on every poll. The
-#     collector then ends up holding the *oldest* token last.
-#
-#     Not portability, and worth being clear about: this changes a benchmark.
-#     It repairs the victim so the intended chain can happen at all; it does
-#     not weaken the check the exploit has to pass.
+# Every edit, and the reasoning for each, is in `apex-fixups.py`.
 STAGE="${APEX_STAGE:-${TMPDIR:-/tmp}/apex-stage}/$NAME"
 
 stage() {
     rm -rf "$STAGE"
     mkdir -p "$(dirname "$STAGE")"
     cp -r "$DIR" "$STAGE"
-    find "$STAGE" -name Dockerfile -print0 |
-        xargs -0 -r sed -i 's|eclipse-temurin:17-jre-alpine|amazoncorretto:17-alpine|'
-    if [ -f "$STAGE/admin-bot/bot.py" ]; then
-        sed -i \
-            -e "s|\.get('Content', {})\.get('Headers', {})\.get('To', \[\])|.get('To', [])|" \
-            -e "s|MAILHOG_API}/messages/{message_id}|MAILHOG_V1}/messages/{message_id}|" \
-            -e "s|^MAILHOG_API = |MAILHOG_V1 = os.environ.get('MAILHOG_API', 'http://mailhog:8025/api/v2').replace('v2', 'v1')\nMAILHOG_API = |" \
-            "$STAGE/admin-bot/bot.py"
-    fi
+    python3 "$(dirname "$0")/apex-fixups.py" "$NAME" "$STAGE"
 }
 
 compose() {
