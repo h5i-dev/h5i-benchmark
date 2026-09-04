@@ -18,34 +18,16 @@ only when the strings match.
 
 ## What this measures
 
-The agent worked against running benchmark instances and used h5i to inspect
-the applications, develop the exploits, and retrieve the flags. It was not
-given the published writeups and did not directly consult them during the
-experiment. It used the ordinary, general-purpose Opus 5.0 model, not a model
-specially trained or fine-tuned for this benchmark.
+The agent used h5i against running benchmark instances to inspect the applications, 
+develop exploits, and retrieve flags. It used the general-purpose Opus 5.0 model, 
+without benchmark-specific training or fine-tuning.
 
-This is not, however, a clean test of previously unseen vulnerability
-discovery. The benchmarks and their writeups had already been public from
-multiple sources before the experiment. They may therefore have appeared in
-the model's training data, and this experiment cannot establish whether or how
-much that prior exposure affected the results. The repository makes no claim
-that these are new vulnerabilities or that the scores measure performance on
-truly novel targets.
+However, this was not a clean test of novel vulnerability discovery. The benchmarks 
+and their writeups were already public and may have appeared in the model’s training data. 
+We therefore make no claim that the vulnerabilities were new or that the results measure performance on unseen targets.
 
-What this repository tests is the tool itself. Can h5i express the requests
-and interactions required by an exploit, send them accurately, record them,
-and expose the responses? Does it continue to do so across many applications
-and multi-service scenarios?
-
-A corpus with known answers is useful for evaluating those questions because
-failures are unambiguous. The exploit is already known to work; if a solution
-does not retrieve the expected flag, either the environment or h5i is missing
-something the scenario requires.
-
-The agent supplied the reasoning and payloads; h5i sent the requested traffic,
-recorded it, and exposed the responses. h5i itself does not generate payloads
-or scan for vulnerabilities. The reasoning behind this separation is
-described in W1 of `docs/design/design-websec.md` in the h5i repository.
+Instead, this repository evaluates whether h5i can support the requests and interactions needed
+to exploit a broad range of applications, including multi-service scenarios.
 
 ## Common setup
 
