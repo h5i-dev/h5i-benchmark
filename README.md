@@ -5,12 +5,18 @@ the standard Opus 5.0 model solved the benchmark instances using
 [h5i](https://github.com/h5i-dev/h5i), specifically `h5i browser` and the
 `h5i websec` plugin, and produced the solutions in this repository.
 
-The repository currently covers two corpora:
+The repository currently covers three corpora:
 
 | Corpus | Solved | Details |
 | --- | ---: | --- |
 | [XBOW Validation Benchmarks](https://github.com/xbow-engineering/validation-benchmarks) | 100/104 | [`examples/xben/README.md`](examples/xben/README.md) |
 | [Argus Validation Benchmarks](https://github.com/pensarai/argus-validation-benchmarks) | 54/60 | [`examples/argus/README.md`](examples/argus/README.md) |
+| [Cybench](https://github.com/andyzorigin/cybench) | 8/8 web tasks | [`examples/cybench/README.md`](examples/cybench/README.md) |
+
+Cybench is counted differently on purpose. It is a CTF corpus rather than a web
+one — 40 tasks, of which 8 involve a server answering requests and 32 are
+crypto, reversing, pwn and forensics. Only the 8 are covered, and the other 32
+were not attempted; the corpus README says why.
 
 Each solution accepts a URL and prints a flag. The corpus-specific runner
 checks that output against the exact flag for that benchmark; a test passes
@@ -52,5 +58,8 @@ Most solutions follow roughly the same sequence:
 3. Modify and resend that request using `h5i websec replay req_N --set …`.
 4. Read the response and print the flag.
 
-Some scenarios additionally require other protocols or services. Those
-corpus-specific differences are described in the two linked READMEs.
+Some scenarios additionally require other protocols or services, and a few
+need a message written byte for byte rather than edited — `h5i websec replay
+--raw-request` — because the framing or the header case is the thing under
+test. Those corpus-specific differences are described in the three linked
+READMEs.
