@@ -1,6 +1,8 @@
 # h5i-benchmark
 
 Worked solutions to public pentesting corpora. A general-purpose agent running
+
+[![h5i on StartupScores](https://startupscores.com/badge/h5i.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/h5i)
 the standard Opus 5.0 model solved the benchmark instances using
 [h5i](https://github.com/h5i-dev/h5i), specifically `h5i browser` and the
 `h5i websec` plugin, and produced the solutions in this repository.
