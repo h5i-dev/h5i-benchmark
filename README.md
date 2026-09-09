@@ -13,11 +13,6 @@ The repository currently covers three corpora:
 | [Argus Validation Benchmarks](https://github.com/pensarai/argus-validation-benchmarks) | 54/60 | [`examples/argus/README.md`](examples/argus/README.md) |
 | [Cybench](https://github.com/andyzorigin/cybench) | 8/8 web tasks | [`examples/cybench/README.md`](examples/cybench/README.md) |
 
-Cybench is counted differently on purpose. It is a CTF corpus rather than a web
-one — 40 tasks, of which 8 involve a server answering requests and 32 are
-crypto, reversing, pwn and forensics. Only the 8 are covered, and the other 32
-were not attempted; the corpus README says why.
-
 Each solution accepts a URL and prints a flag. The corpus-specific runner
 checks that output against the exact flag for that benchmark; a test passes
 only when the strings match.
